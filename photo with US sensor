@@ -1,0 +1,89 @@
+//this is working code to simulate the robot running to a wall while on a track
+//when the photoresistor comes up LOW, it will light an LED then the ultrasonic will turn on
+//when the ultrasonic comes within 12 inches from a wall, another LED will turn on
+
+
+// variable to hold sensor value
+int sensorValue;
+// variable to calibrate low value
+int sensorLow = 1023;
+// variable to calibrate high value
+int sensorHigh = 0;
+// LED pin
+
+void setup() {
+  pinMode (2,OUTPUT);//attach pin 2 to vcc
+  pinMode (5,OUTPUT);//attach pin 5 to GND
+  pinMode (8,OUTPUT);//LED for range close
+  pinMode (9,OUTPUT);//LED for ultrasonic on
+  // initialize serial communication:
+  Serial.begin(9600);
+  
+ /*   digitalWrite(8,HIGH);
+  //sensorValue=analogRead(A0);
+  
+   // calibrate for the first five seconds after program runs
+  while (millis() < 5000) {
+    // record the maximum sensor value
+    sensorValue = analogRead(A0);
+    if (sensorValue > sensorHigh) {
+      sensorHigh = sensorValue;
+    }
+    // record the minimum sensor value
+    if (sensorValue < sensorLow) {
+      sensorLow = sensorValue;
+    }
+  }
+  // turn the LED off, signaling the end of the calibration period
+  digitalWrite(8, LOW);*/
+}
+
+
+
+void loop(){
+  sensorValue=analogRead(A0);
+  Serial.println("value of light: "); 
+  Serial.print(sensorValue);   //see what values resistor is putting out
+   
+  if(sensorValue<300){
+   
+  digitalWrite(8,HIGH); 
+  digitalWrite(2, HIGH);
+  long duration, inches;
+  pinMode(3, OUTPUT);// attach pin 3 to Trig
+  
+  digitalWrite(3, LOW);
+  delayMicroseconds(2);
+  digitalWrite(3, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(3, LOW);
+  
+  pinMode (4, INPUT);//attach pin 4 to Echo
+  duration = pulseIn(4, HIGH); // convert the time into a distance
+  inches = microsecondsToInches(duration);  
+   if(inches<=12){
+    digitalWrite(9,HIGH); //blue LED On
+  }else{
+    digitalWrite(9,LOW);
+  }
+  
+  }
+  else{
+    digitalWrite(8,LOW);
+    digitalWrite(2,LOW);
+    digitalWrite(9,LOW);
+  }
+  
+  
+}
+
+
+long microsecondsToInches(long microseconds)
+{
+  // According to Parallax's datasheet for the PING))), there are
+  // 73.746 microseconds per inch (i.e. sound travels at 1130 feet per
+  // second).  This gives the distance travelled by the ping, outbound
+  // and return, so we divide by 2 to get the distance of the obstacle.
+  // See: http://www.parallax.com/dl/docs/prod/acc/28015-PING-v1.3.pdf
+  return microseconds / 74 / 2;
+}
