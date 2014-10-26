@@ -1,0 +1,13 @@
+#include <DRV8835MotorShield.h>
+DRV8835MotorShield motors;
+
+void setup(){}
+void loop(){
+motors.flipM2(true);
+
+for(int i=0;i<30000;i++){   //change for shorter forward movement. Think this is about 3 sec
+motors.setSpeeds(250,250);
+  }
+  motors.setSpeeds(0,0);
+  delay(500);
+}
