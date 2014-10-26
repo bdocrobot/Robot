@@ -1,0 +1,176 @@
+//Robot: PID Third Implement
+2	//=====
+3	
+4	//senior design
+5	
+6	//--------------------------------------
+7	//This code will instruct the robot to move forward following a line and lighting an LED when in center (error=0)
+8	//currently, the motor control and turn functions are commented out so I can tweak the settings without it movoing. uncomment 
+9	//the motor control function in the main loop.
+10	//The robot will find the cross section and run in circles untill the counter is met. Exit loop is suppose to occur 
+11	//when sensor 4 finds two other lines.
+12	//Let me know if there is any confusion and I will attempt to address it.
+13	
+14	
+15	#include <QTRSensors.h>
+16	#include <DRV8835MotorShield.h>
+17	DRV8835MotorShield motors;
+18	
+19	
+20	
+21	//may not use these at all
+22	//---------sensor header file used--------------------
+23	#define NUM_SENSORS   7     // number of sensors used
+24	#define TIMEOUT       2500  // waits for 2500 microseconds for sensor outputs to go low
+25	#define EMITTER_PIN   30     // emitter is controlled by digital pin 2               
+26	
+27	QTRSensorsRC qtrrc((unsigned char[]) {31,32,33,34,35,36,37},                    
+28	 NUM_SENSORS, TIMEOUT, EMITTER_PIN); 
+29	unsigned int sensor[NUM_SENSORS];
+30	//----------------------------------------------------
+31	
+32	float Kp=11; //magnitude of change required to get to set point
+33	            //if error is high, increase
+34	//float Ki=0.02; //vary rate of change of the physical quantity to get set point
+35	            //if not responding fast enough, increase slightly
+36	float Kd=7; //vary stability of system
+37	            //increase little to a lot depending on oscillation
+38	            
+39	float error=0; //difference b/w set point and actual point
+40	float P=0;     //proportional to error term
+41	//float I=0;     //integral term, sums all previous error
+42	float D=0;     //differential term b/w instantaneous error from set point and error from previous instant
+43	float PID_value=0; //calculates error and sends to motor
+44	float previous_error=0;
+45	//int sensor[7]={0,0,0,0,0,0,0};
+46	int initial_motor_speed=100;
+47	int ledCount=0;
+48	
+49	void read_sensor_value(void);
+50	void calculate_PID(void);
+51	void motor_control(void);
+52	
+53	void setup()
+54	{
+55	  pinMode(9,OUTPUT);  //PWM for M1 speed
+56	  pinMode(10,OUTPUT); //PWM for M2 speed
+57	  pinMode(7,OUTPUT);  //direction of M1
+58	  pinMode(8,OUTPUT);  //direction of M2
+59	  pinMode(43,OUTPUT); //in-line LED
+60	  Serial.begin(9600);
+61	}
+62	
+63	void loop(){
+64	  
+65	  read_sensor_value();
+66	  if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]>=2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))  //condition for 0 error
+67	  {
+68	    digitalWrite(43,HIGH);
+69	    ledCount++;
+70	  }else
+71	  {digitalWrite(43,LOW);}
+72	  calculate_PID();
+73	 //motor_control();    //comment to stop from moving 
+74	//  Serial.print(PID_value);
+75	//  Serial.println();
+76	 //stopMotors();       //function to stop (and turn)
+77	}
+78	
+79	void stopMotors()
+80	{
+81	  if((sensor[0]>=2400)&&(sensor[1]>=2400)&&(sensor[2]>=2400)&&(sensor[3]>=2400)&&(sensor[4]>=2400)&&(sensor[5]>=2400)&&(sensor[6]>=2400))
+82	    {
+83	      motors.setSpeeds(0,0);
+84	      delay(1000);
+85	      int i=0;
+86	      while(i<2)      //**************look into this... infinite loop with ledCount in if statement
+87	      {
+88	        if(ledCount<2){  //attempting a counter for when the center sensor 'sees' the black line
+89	        i++;                  //once it sees two lines, that means it has turned 180 degrees
+90	        delay(500);
+91	        }
+92	        motors.setSpeeds(100,100);
+93	        Serial.print(i);
+94	      }
+95	      
+96	      delay(1500);
+97	      error=0;
+98	      ledCount=0;
+99	    }
+100	}
+101	
+102	void read_sensor_value()
+103	{
+104	  
+105	  qtrrc.read(sensor);
+106	  
+107	//-----------start error statements-------------------sensor[4] is no error, center of bot
+108	   if((sensor[0]>=2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+109	  error=-6;  //indicator of line on right side: 1000000 done
+110	  else if((sensor[0]>=2400)&&(sensor[1]>=2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+111	  error=-5;  //line still on right              1100000 done
+112	  else if((sensor[0]<2400)&&(sensor[1]>=2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+113	  error=-4;  //                                 0100000 done
+114	else if((sensor[0]<2400)&&(sensor[1]>=2400)&&(sensor[2]>=2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+115	  error=-3;  //                                 0110000 done
+116	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]>=2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+117	  error=-2;  //                                 0010000 done
+118	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]>=2400)&&(sensor[3]>=2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+119	  error=-1; //                                  0011000 done
+120	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]>=2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+121	  error=0;  //                                 0001000 done
+122	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]>=2400)&&(sensor[4]>=2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+123	  error=1;  //                                0001100 done
+124	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]>=2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+125	  error=2;  //                                0000100 done
+126	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]>=2400)&&(sensor[5]>=2400)&&(sensor[6]<2400))
+127	  error=3;  //                                0000110 done
+128	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]>=2400)&&(sensor[6]<2400))
+129	  error=4;  //                                0000010 done
+130	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]>=2400)&&(sensor[6]>=2400))
+131	  error=5;  //                                0000011 done
+132	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]>=2400))
+133	  error=6;  //                                0000001 done
+134	  else if((sensor[0]<2400)&&(sensor[1]<2400)&&(sensor[2]<2400)&&(sensor[3]<2400)&&(sensor[4]<2400)&&(sensor[5]<2400)&&(sensor[6]<2400))
+135	   {
+136	     motors.setSpeeds(0,0);
+137	//     if(error==6) //                           0000000
+138	//    error=7;
+139	//    else error=-7; 
+140	   }
+141	   //  //                           
+142	//-----------end error statements---------- 
+143	  
+144	}
+145	
+146	void calculate_PID()
+147	{
+148	  P=error;  
+149	  //I=I+error;   //error adds to itself for every iteration
+150	  D=error-previous_error;  //how far away from correct
+151	  PID_value=(Kp*P)+(Kd*D);  //value to be sent to motor after scaling, pos or neg value
+152	  previous_error=error;  //current error becomes previous error
+153	}
+154	
+155	void motor_control()
+156	{
+157	  //if PID_value is pos, left motor speed increases and right decreases
+158	  //if PID_value is neg, right motor speed increases and left decreases
+159	  
+160	  //---------effective motor speed-------
+161	  int M1_speed=initial_motor_speed-PID_value;
+162	  int M2_speed=initial_motor_speed+PID_value;
+163	  
+164	  //---------speed should not exceed max PWM value----
+165	  constrain(M1_speed,0,255);
+166	  constrain(M2_speed,0,255);
+167	  
+168	  analogWrite(9,M1_speed); //left motor speed
+169	  analogWrite(10,M2_speed); //right motor speed
+170	  
+171	  digitalWrite(7,HIGH);  //polarity M1
+172	  digitalWrite(8,LOW);  //polarity M2
+173	  
+174	  
+175	}
+176	
